@@ -9,6 +9,10 @@ export interface Task {
     createdAt: string;
     notes?: string;
     priority: Priority;
+    startDate?: string;
+    dueDate?: string;
+    soundUri?: string;
+    soundName?: string;
 }
 
 interface TasksState {

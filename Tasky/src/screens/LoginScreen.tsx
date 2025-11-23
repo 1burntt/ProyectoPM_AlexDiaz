@@ -15,7 +15,7 @@ const LoginScreen = () => {
   const backgroundImage = require("../../assets/LoginBackgroundImage.jpg");
 
   const handleLogin = () => {
-    if (email.includes("@") && email.includes(".")) {
+    if (email.includes("@") && email.includes(".") && password.length >= 6) {
       const phoneNumber = parseInt(phone) || 0;
       login(email, password, phoneNumber);
       navigation.navigate("Home");

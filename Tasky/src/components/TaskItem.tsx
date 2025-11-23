@@ -12,6 +12,7 @@ interface TaskItemProps {
     completed: boolean;
     priority: Priority;
     notes?: string;
+    dueDate?: string;
   };
   onToggle: (id: string) => void;
   onMenuPress: (id: string) => void;
@@ -25,7 +26,7 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
   const getPriorityColor = (priority: Priority) => {
     const priorityColors = {
       'low': '#10B981',
-      'medium-low': '#06B6D4', 
+      'medium-low': '#06B6D4',
       'medium': '#3B82F6',
       'high': '#F59E0B',
       'urgent': '#EF4444',
@@ -50,61 +51,96 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
     const priorityTexts = {
       'low': 'Baja',
       'medium-low': 'Poco Baja',
-      'medium': 'Moderada', 
+      'medium': 'Moderada',
       'high': 'Alta',
       'urgent': 'Urgente',
     };
     return priorityTexts[priority];
   };
 
+  // formatear fecha de vencimiento
+  const formatDueDate = (dueDate?: string) => {
+    if (!dueDate) return null;
+    
+    const date = new Date(dueDate);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === now.toDateString()) {
+      return `Hoy ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return `Mañana ${date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}`;
+    } else {
+      return date.toLocaleDateString('es-ES', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+  };
+
+  const dueDateText = formatDueDate(task.dueDate);
+
   return (
-    <TouchableOpacity 
-      style={[styles.taskItem, { 
+    <TouchableOpacity
+      style={[styles.taskItem, {
         backgroundColor: colors.card,
-        opacity: task.completed ? 0.7 : 1 
+        opacity: task.completed ? 0.7 : 1
       }]}
       onPress={() => onToggle(task.id)}
     >
       <View style={styles.taskContent}>
-        
+
         {/* titulo y checkbox */}
         <View style={styles.taskHeader}>
           <Text style={[
-            styles.taskText, 
+            styles.taskText,
             { color: colors.text },
             task.completed && styles.completedText
           ]}>
             {task.title}
           </Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.checkbox}
             onPress={() => onToggle(task.id)}
           >
             <View style={[
-              styles.checkboxCircle, 
-              { 
+              styles.checkboxCircle,
+              {
                 borderColor: colors.primary,
                 backgroundColor: task.completed ? colors.primary : 'transparent'
               }
             ]} />
           </TouchableOpacity>
         </View>
-        
-        {/* prioridad */}
+
+        {/* prioridad y fecha de vencimiento */}
         <View style={styles.taskDetails}>
           <View style={[
-            styles.priorityBadge, 
+            styles.priorityBadge,
             { backgroundColor: getPriorityColor(task.priority) }
           ]}>
-            <Ionicons 
-              name={getPriorityIcon(task.priority) as any} 
-              size={12} 
-              color="white" 
+            <Ionicons
+              name={getPriorityIcon(task.priority) as any}
+              size={12}
+              color="white"
             />
             <Text style={styles.priorityText}>
               {getPriorityText(task.priority)}
             </Text>
           </View>
+
+          {dueDateText && (
+            <View style={styles.dueDateContainer}>
+              <Ionicons name="time-outline" size={12} color={colors.textSecondary} />
+              <Text style={[styles.dueDateText, { color: colors.textSecondary }]}>
+                {dueDateText}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* notas si existen */}
@@ -115,12 +151,13 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
         ) : null}
 
         {/* boton menu en esquina */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.menuButton}
           onPress={() => onMenuPress(task.id)}
         >
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
+
       </View>
     </TouchableOpacity>
   );
@@ -169,6 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
+    justifyContent: 'space-between',
   },
   priorityBadge: {
     flexDirection: 'row',
@@ -182,6 +220,15 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     marginLeft: 4,
+  },
+  dueDateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dueDateText: {
+    fontSize: 10,
+    marginLeft: 4,
+    fontStyle: 'italic',
   },
   taskNotes: {
     fontSize: 14,
