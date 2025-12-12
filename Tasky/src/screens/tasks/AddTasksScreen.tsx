@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import {
-  View, 
-  Text, 
-  StyleSheet, 
-  TextInput, 
-  Alert, 
-  ScrollView, 
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  Alert,
+  ScrollView,
   TouchableOpacity,
   Platform
 } from "react-native";
@@ -14,25 +14,27 @@ import { getThemeColors } from "../../utils/theme";
 import CustomButton from "../../components/CustomButton";
 import { useNavigation } from "@react-navigation/native";
 import { useAppDispatch } from "../../store/hooks";
-import { addTask, Priority } from "../../store/taskSlice";
 import { i18n } from "../../contexts/LanguageContext";
 import Header from "../../components/Header";
 import PrioritySelector from "../../components/PrioritySelector";
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from "../../contexts/AuthContext"; 
+import { addTask, Priority } from "../../store/taskSlice";
 
 const AddTasksScreen = () => {
   const dispatch = useAppDispatch();
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
 
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
   const [taskNotes, setTaskNotes] = useState('');
   const [selectedPriority, setSelectedPriority] = useState<Priority>('medium');
-  
+
   // Estados para fecha y hora
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -40,7 +42,7 @@ const AddTasksScreen = () => {
   const [showDueDatePicker, setShowDueDatePicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showDueTimePicker, setShowDueTimePicker] = useState(false);
-  
+
   // Estado para sonido
   const [selectedSound, setSelectedSound] = useState<{uri: string, name: string} | null>(null);
 
@@ -122,37 +124,35 @@ const AddTasksScreen = () => {
   };
 
   const pickSound = async () => {
-  try {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: 'audio/*',
-      copyToCacheDirectory: true,
-      multiple: false // Asegurar que solo se seleccione un archivo
-    });
-
-    console.log('DocumentPicker result:', result); // Para debugging
-
-    // La estructura correcta en versiones recientes de expo-document-picker
-    if (!result.canceled && result.assets && result.assets.length > 0) {
-      const soundFile = result.assets[0];
-      setSelectedSound({
-        uri: soundFile.uri,
-        name: soundFile.name || 'Custom Sound'
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'audio/*',
+        copyToCacheDirectory: true,
+        multiple: false // Asegurar que solo se seleccione un archivo
       });
-      
-      console.log('Sound selected:', soundFile.name, soundFile.uri);
-    } else {
-      console.log('Sound selection canceled');
-    }
-  } catch (error) {
-    console.error('Error picking sound:', error);
-    Alert.alert(
-      i18n.t("error"),
-      i18n.t("soundPickError")
-    );
-  }
-};
+      console.log('DocumentPicker result:', result); // Para debugging
 
-  const handleSave = () => {
+      // La estructura correcta en versiones recientes de expo-document-picker
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const soundFile = result.assets[0];
+        setSelectedSound({
+          uri: soundFile.uri,
+          name: soundFile.name || 'Custom Sound'
+        });
+        console.log('Sound selected:', soundFile.name, soundFile.uri);
+      } else {
+        console.log('Sound selection canceled');
+      }
+    } catch (error) {
+      console.error('Error picking sound:', error);
+      Alert.alert(
+        i18n.t("error"),
+        i18n.t("soundPickError")
+      );
+    }
+  };
+
+  const handleSave = async () => {
     if (!taskTitle.trim()) {
       Alert.alert(
         i18n.t("incompleteData"),
@@ -170,42 +170,58 @@ const AddTasksScreen = () => {
       return;
     }
 
-    dispatch(
-      addTask({
+    // Verificar que tenemos usuario
+    if (!user?.id) {
+      Alert.alert("Error", "No se pudo identificar al usuario");
+      return;
+    }
+
+    try {
+      // Preparamos los datos de la tarea
+      const taskData = {
         title: taskTitle,
-        notes: taskDescription + (taskNotes ? `\n${i18n.t("notes")}: ${taskNotes}` : ''),
+        description: taskDescription,
+        notes: taskNotes,
         completed: false,
         priority: selectedPriority,
         startDate: startDate ? startDate.toISOString() : undefined,
         dueDate: dueDate ? dueDate.toISOString() : undefined,
         soundUri: selectedSound?.uri,
         soundName: selectedSound?.name
-      })
-    );
+      };
 
-    // limpiar formulario
-    setTaskTitle('');
-    setTaskDescription('');
-    setTaskNotes('');
-    setSelectedPriority('medium');
-    setStartDate(null);
-    setDueDate(null);
-    setSelectedSound(null);
+      // Guardamos usando el thunk async
+      await dispatch(addTask({ userId: user.id, taskData })).unwrap();
+      
+      console.log("Tarea guardada exitosamente en Supabase");
+      
+      // limpiar formulario
+      setTaskTitle('');
+      setTaskDescription('');
+      setTaskNotes('');
+      setSelectedPriority('medium');
+      setStartDate(null);
+      setDueDate(null);
+      setSelectedSound(null);
 
-    Alert.alert(
-      i18n.t("taskSaved"),
-      i18n.t("taskSavedMessage"),
-      [
-        {
-          text: i18n.t("viewTasks"),
-          onPress: () => navigation.navigate('Home')
-        },
-        {
-          text: i18n.t("continueAdding"),
-          style: "cancel"
-        }
-      ]
-    );
+      Alert.alert(
+        i18n.t("taskSaved"),
+        i18n.t("taskSavedMessage"),
+        [
+          {
+            text: i18n.t("viewTasks"),
+            onPress: () => navigation.navigate('Home')
+          },
+          {
+            text: i18n.t("continueAdding"),
+            style: "cancel"
+          }
+        ]
+      );
+    } catch (error) {
+      console.error("Error al guardar tarea:", error);
+      Alert.alert("Error", "No se pudo guardar la tarea");
+    }
   };
 
   const handleCancel = () => {
@@ -232,21 +248,18 @@ const AddTasksScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-
       <Header
         title="Tasky"
         showBackButton={true}
         onBack={() => navigation.goBack()}
       />
 
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-
+      <ScrollView style={styles.content}
+        contentContainerStyle={styles.scrollContent}>
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-
           <Text style={[styles.title, { color: colors.text }]}>
             {i18n.t("createNewTask")}
           </Text>
-
           <Text style={[styles.description, { color: colors.textSecondary }]}>
             {i18n.t("createTaskDescription")}
           </Text>
@@ -255,7 +268,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("taskTitle")} *
           </Text>
-
           <TextInput
             style={[
               styles.input,
@@ -271,7 +283,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("priority")}
           </Text>
-
           <PrioritySelector
             selectedPriority={selectedPriority}
             onPriorityChange={setSelectedPriority}
@@ -281,7 +292,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("startDateTime")}
           </Text>
-
           <View style={styles.dateTimeContainer}>
             <TouchableOpacity
               style={[styles.dateTimeButton, { borderColor: colors.border }]}
@@ -292,7 +302,6 @@ const AddTasksScreen = () => {
                 {startDate ? formatDate(startDate) : i18n.t("selectDate")}
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.dateTimeButton, { borderColor: colors.border }]}
               onPress={() => setShowStartTimePicker(true)}
@@ -308,7 +317,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("dueDateTime")}
           </Text>
-
           <View style={styles.dateTimeContainer}>
             <TouchableOpacity
               style={[styles.dateTimeButton, { borderColor: colors.border }]}
@@ -319,7 +327,6 @@ const AddTasksScreen = () => {
                 {dueDate ? formatDate(dueDate) : i18n.t("selectDate")}
               </Text>
             </TouchableOpacity>
-
             <TouchableOpacity
               style={[styles.dateTimeButton, { borderColor: colors.border }]}
               onPress={() => setShowDueTimePicker(true)}
@@ -340,7 +347,6 @@ const AddTasksScreen = () => {
               onChange={handleStartDateChange}
             />
           )}
-
           {showStartTimePicker && (
             <DateTimePicker
               value={startDate || new Date()}
@@ -349,7 +355,6 @@ const AddTasksScreen = () => {
               onChange={handleStartTimeChange}
             />
           )}
-
           {showDueDatePicker && (
             <DateTimePicker
               value={dueDate || new Date()}
@@ -358,7 +363,6 @@ const AddTasksScreen = () => {
               onChange={handleDueDateChange}
             />
           )}
-
           {showDueTimePicker && (
             <DateTimePicker
               value={dueDate || new Date()}
@@ -372,7 +376,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("customSound")}
           </Text>
-
           <TouchableOpacity
             style={[styles.soundButton, { borderColor: colors.border }]}
             onPress={pickSound}
@@ -382,7 +385,6 @@ const AddTasksScreen = () => {
               {selectedSound ? selectedSound.name : i18n.t("chooseCustomSound")}
             </Text>
           </TouchableOpacity>
-
           {selectedSound && (
             <TouchableOpacity
               style={styles.removeSoundButton}
@@ -398,7 +400,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("description")}
           </Text>
-
           <TextInput
             style={[
               styles.input,
@@ -414,7 +415,6 @@ const AddTasksScreen = () => {
           <Text style={[styles.label, { color: colors.textSecondary }]}>
             {i18n.t("additionalNotes")}
           </Text>
-
           <TextInput
             style={[
               styles.input,
@@ -435,7 +435,6 @@ const AddTasksScreen = () => {
             onPress={handleSave}
             variant="primary"
           />
-
           <CustomButton
             title={i18n.t("cancel")}
             onPress={handleCancel}
@@ -445,11 +444,8 @@ const AddTasksScreen = () => {
           <Text style={[styles.helperText, { color: colors.textSecondary }]}>
             {i18n.t("requiredFields")}
           </Text>
-
         </View>
-
       </ScrollView>
-
     </View>
   );
 };

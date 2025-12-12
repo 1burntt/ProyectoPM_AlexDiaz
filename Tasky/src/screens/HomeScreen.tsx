@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
@@ -7,7 +7,7 @@ import { i18n } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { getThemeColors } from "../utils/theme";
 import { useAppSelector, useAppDispatch } from "../store/hooks";
-import { toggleTask, deleteTask, Priority } from "../store/taskSlice";
+import { toggleTask, deleteTask, fetchTasks } from "../store/taskSlice";
 import { Ionicons } from "@expo/vector-icons";
 import Header from "../components/Header";
 import TaskItem from "../components/TaskItem";
@@ -19,16 +19,36 @@ const HomeScreen = () => {
   const colors = getThemeColors(theme);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
-  
+
   const tasks = useAppSelector((state) => state.tasks.tasks || []);
-  
+
   const completedTasks = tasks.filter(task => task.completed);
   const pendingTasks = tasks.filter(task => !task.completed);
+
   const [selectedTask, setSelectedTask] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
 
-  const handleToggleTask = (taskId: string) => {
-    dispatch(toggleTask(taskId));
+  // Cargar tareas cuando el usuario cambia
+  useEffect(() => {
+    if (user?.id) {
+      console.log("Usuario detectado, cargando tareas...");
+      dispatch(fetchTasks(user.id));
+    }
+  }, [user?.id, dispatch]);
+
+  const handleToggleTask = async (taskId: string) => {
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      const newCompleted = !task.completed;
+      try {
+        // Usamos el thunk async
+        await dispatch(toggleTask({ taskId, completed: newCompleted })).unwrap();
+        console.log("Tarea actualizada exitosamente");
+      } catch (error) {
+        console.error("Error al actualizar tarea:", error);
+        Alert.alert("Error", "No se pudo actualizar la tarea");
+      }
+    }
   };
 
   const handleDeleteTask = (taskId: string) => {
@@ -37,12 +57,18 @@ const HomeScreen = () => {
       i18n.t("deleteTaskConfirmation"),
       [
         { text: i18n.t("cancel"), style: "cancel" },
-        { 
-          text: i18n.t("delete"), 
+        {
+          text: i18n.t("delete"),
           style: "destructive",
-          onPress: () => {
-            dispatch(deleteTask(taskId));
-            setMenuVisible(false);
+          onPress: async () => {
+            try {
+              await dispatch(deleteTask(taskId)).unwrap();
+              console.log("Tarea eliminada exitosamente");
+              setMenuVisible(false);
+            } catch (error) {
+              console.error("Error al eliminar tarea:", error);
+              Alert.alert("Error", "No se pudo eliminar la tarea");
+            }
           }
         }
       ]
@@ -74,7 +100,7 @@ const HomeScreen = () => {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      
+
       <Header
         title="Tasky"
         showUserButton={true}
@@ -86,9 +112,9 @@ const HomeScreen = () => {
       {/* contenido principal */}
       {hasNoTasks ? (
         <View style={styles.emptyState}>
-          <Ionicons 
-            name="checkmark-done-circle-outline" 
-            size={120} 
+          <Ionicons
+            name="checkmark-done-circle-outline"
+            size={120}
             color={colors.textSecondary}
             style={styles.emptyIcon}
           />
@@ -149,7 +175,7 @@ const HomeScreen = () => {
       <Modal visible={menuVisible} transparent animationType="fade" onRequestClose={closeMenu}>
         <TouchableOpacity style={styles.modalOverlay} onPress={closeMenu} activeOpacity={1}>
           <View style={[styles.menu, { backgroundColor: colors.card }]}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.menuItem}
               onPress={() => selectedTask && handleDeleteTask(selectedTask)}
             >
@@ -162,7 +188,7 @@ const HomeScreen = () => {
 
       {/* boton agregar */}
       <View style={[styles.bottomBar, { backgroundColor: colors.card, paddingBottom: insets.bottom + 10 }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.addButton, { backgroundColor: colors.primary }]}
           onPress={() => navigation.navigate("AddTasks")}
         >

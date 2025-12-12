@@ -61,7 +61,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
   // formatear fecha de vencimiento
   const formatDueDate = (dueDate?: string) => {
     if (!dueDate) return null;
-    
     const date = new Date(dueDate);
     const now = new Date();
     const tomorrow = new Date(now);
@@ -93,7 +92,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
       onPress={() => onToggle(task.id)}
     >
       <View style={styles.taskContent}>
-
         {/* titulo y checkbox */}
         <View style={styles.taskHeader}>
           <Text style={[
@@ -141,6 +139,8 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
               </Text>
             </View>
           )}
+
+          <View style={styles.menuSpacer} />
         </View>
 
         {/* notas si existen */}
@@ -157,7 +157,6 @@ const TaskItem: React.FC<TaskItemProps> = ({ task, onToggle, onMenuPress }) => {
         >
           <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
-
       </View>
     </TouchableOpacity>
   );
@@ -224,11 +223,18 @@ const styles = StyleSheet.create({
   dueDateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
+    marginHorizontal: 8,
   },
   dueDateText: {
     fontSize: 10,
     marginLeft: 4,
     fontStyle: 'italic',
+    textAlign: 'center',
+  },
+  menuSpacer: {
+    width: 32,
   },
   taskNotes: {
     fontSize: 14,
